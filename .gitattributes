@@ -1,0 +1,5 @@
+# 文本文件在仓库里统一用 LF 换行，免得在 Windows 上来回转换
+* text=auto eol=lf
+
+*.png binary
+*.ico binary

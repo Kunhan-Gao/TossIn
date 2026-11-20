@@ -1,0 +1,53 @@
+/* 角上的小鹈鹕。底下垫一块和外观同色的小圆角板，这样落在任何桌面背景上都看得清。 */
+:root { --bg: #2B3238; --line: #3D484F; --cold: #6C7B83; --bird: #DBE2E5; --pouch: #FFA273; }
+:root[data-theme="night"] { --bg: #11181C; --line: #27333A; --cold: #5A6B74; --bird: #D5DDE0; --pouch: #FF9C66; }
+:root[data-theme="term"] { --bg: #0C0C0C; --line: #2A2A2A; --cold: #5F5F5F; --bird: #CFCFCF; --pouch: #E9A85B; }
+
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+body { display: grid; place-items: center; }
+
+#plate {
+  width: 104px; padding: 12px 14px 10px; box-sizing: border-box;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  opacity: 0;
+}
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+.bd { fill: var(--bird); }
+.nk { fill: none; stroke: var(--bird); stroke-width: 8; stroke-linecap: round; }
+.pc { fill: var(--pouch); }
+.ey { fill: var(--bg); }
+.water { fill: none; stroke: var(--cold); stroke-width: 1.3; stroke-linecap: round; stroke-dasharray: 2.6 4.4; }
+.bill, .pc { transform-box: view-box; transform-origin: 37.3px 10.8px; }
+
+/* 一次"接住"：冒出来 → 张嘴 → 合上时点一下头 → 淡出。总共 1.1 秒 */
+.go #plate { animation: pop 1.1s ease-out both; }
+.go .bill { animation: bill 1.1s cubic-bezier(.3, 1.4, .5, 1) both; }
+.go .pc { animation: pouch 1.1s cubic-bezier(.3, 1.4, .5, 1) both; }
+.go .bob { animation: nod 1.1s ease-in-out both; }
+
+@keyframes pop {
+  0% { opacity: 0; transform: translateY(10px) scale(.94); }
+  14% { opacity: 1; transform: none; }
+  78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(4px); }
+}
+@keyframes bill {
+  0%, 14% { transform: rotate(0); }
+  30%, 46% { transform: rotate(-25deg); }
+  56%, 100% { transform: rotate(0); }
+}
+@keyframes pouch {
+  0%, 14% { transform: rotate(0); }
+  30%, 46% { transform: rotate(8deg); }
+  56%, 100% { transform: rotate(0); }
+}
+@keyframes nod {
+  0%, 52% { transform: translateY(0); }
+  62% { transform: translateY(1.6px); }
+  76%, 100% { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .go .bill, .go .pc, .go .bob { animation: none; }
+}

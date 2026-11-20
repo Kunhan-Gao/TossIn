@@ -1,0 +1,23 @@
+# 依赖和打包结果：都能重新生成，不进仓库
+node_modules/
+dist/
+
+# Electron 运行环境的压缩包（约 150 MB）。放在项目根目录时打包不用联网，但太大，不进仓库
+electron-v*.zip
+*.zip
+
+# 做安装包用的工具（NSIS 的免安装版），自己下载后放在这里
+dev/tools/
+
+# 早期的规划页和图标草稿：只在本机留着
+yuwen-plan.html
+dev/icons.html
+dev/pelican.html
+
+# 系统和编辑器产生的文件
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.log

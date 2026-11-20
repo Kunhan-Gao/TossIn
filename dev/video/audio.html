@@ -1,0 +1,340 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+// 演示视频的声音：全部用程序合成，没有用任何现成的素材。分两层：
+//   音效层——跟着画面里的动作走（提问的三个音、鹈鹕的"咕咚"、东西落下的"啵"、点击的"嗒"、归档的水滴声……）
+//   配乐层——垫在下面的音乐：马林巴的拨奏、一步一步走的低音、很轻的沙锤，每分钟 120 拍，C 大调
+// 输出两个 WAV：只有音效的一版，和音效加配乐的一版。再写一份核对结果（每个音效是不是落在了该在的时刻）。
+const fs = require('fs');
+const path = require('path');
+const { ipcRenderer } = require('electron');
+const { FPS, DURATION, T } = require('./timeline');
+
+const RATE = 48000;
+const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`)).slice(name.length + 3);
+const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const seg = (t, a, b) => clamp01((t - a) / (b - a));
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+// ---------- 什么时候响什么 ----------
+
+// 归档的那三条是在"快进"里按规则自己沉下去的：照着看板的算法算出各自是哪一刻
+function sinkTimes() {
+  const need = 48 * Math.log2(1 / 0.06); // 没用过的东西，过这么多小时就归档
+  const ages = [30, 5, 0];               // 开场时三条没用过的内容各自放了多少小时
+  const times = [];
+  let last = -1;
+  for (let i = 0; i < DURATION * FPS; i++) {
+    const t = i / FPS;
+    const warp = inOut(seg(t, ...T.warp)) * T.warpDays * 24;
+    if (warp === last) continue;
+    last = warp;
+    if (!(i % 2 === 0 || t >= T.warp[1])) continue; // 看板隔一帧重排一次
+    for (let k = 0; k < ages.length; k++) {
+      if (ages[k] !== null && ages[k] + warp >= need) { times.push(t); ages[k] = null; }
+    }
+  }
+  return times;
+}
+
+function sfxPlan() {
+  const plan = [];
+  const add = (t, kind, opt = {}) => plan.push({ t: +t.toFixed(3), kind, ...opt });
+  // 开头：三句提问各一个音，一个比一个高，悬着；东西被吞下去是三声小"啵"；合上嘴是"咕咚"；标题落在主和弦上
+  [72, 74, 76].forEach((note, i) => add(T.questions[i] + 0.1, 'ask', { note }));
+  add(T.birdRise[0], 'rise');
+  T.fly.forEach((t, i) => add(t + 0.45, 'pop', { pitch: 1 + i * 0.16, gain: 0.7 }));
+  add(T.birdClose[0] + 0.02, 'gulp');
+  add(5.5, 'chord');
+  // 放
+  add(T.keys[0].press, 'tick');
+  add(T.glows[0].t0 + 0.04, 'pop');
+  add(T.glows[1].t0, 'pop', { pitch: 0.82 });
+  add(T.others[0].t0, 'whoosh', { up: true });
+  add(T.keys[2].press, 'tick');
+  add(T.glows[2].t0 + 0.04, 'pop', { pitch: 1.12 });
+  add(T.others[0].t1, 'whoosh', { up: false });
+  add(T.cues[0][1], 'tada');
+  // 用
+  add(T.clicks[0], 'tick');
+  add(T.clicks[0] + 0.05, 'ding');
+  add(T.others[1].t0, 'whoosh', { up: true });
+  add(T.clicks[1], 'tick');
+  add(T.pasted, 'tick');
+  add(T.pasted + 0.03, 'pop', { pitch: 0.92 });
+  add(T.clicks[2], 'tick');
+  add(T.slotFilled, 'pop', { pitch: 0.78 });
+  add(T.others[1].t1, 'whoosh', { up: false });
+  // 淡出：每沉下去一条，一声往下走的水滴
+  sinkTimes().forEach((t, i) => add(t + 0.4, 'plip', { pitch: 1 - i * 0.14 }));
+  add(T.cues[3][1], 'settle');
+  // 收到边上
+  add(T.clicks[4], 'tick');
+  add(T.tuck[0], 'whoosh', { up: false, gain: 1.3 });
+  add(T.peekIn[0] + 0.08, 'boop');
+  add(T.clicks[5], 'tick');
+  add(T.reveal[0], 'whoosh', { up: true, gain: 1.3 });
+  // 结尾
+  add(T.end, 'gulp', { gain: 0.8 });
+  add(T.end + 0.24, 'chord', { final: true });
+  return plan.sort((a, b) => a.t - b.t);
+}
+
+// ---------- 乐器 ----------
+
+function makeNoise(ctx) {
+  const buf = ctx.createBuffer(1, RATE * 2, RATE);
+  const d = buf.getChannelData(0);
+  let seed = 12345;
+  for (let i = 0; i < d.length; i++) { seed = (seed * 1664525 + 1013904223) >>> 0; d[i] = seed / 2147483648 - 1; } // 固定的随机数，每次合成结果一样
+  return buf;
+}
+// 混响：一段自己生成的、逐渐衰减的噪声
+function makeReverb(ctx) {
+  const len = Math.round(RATE * 1.3);
+  const buf = ctx.createBuffer(2, len, RATE);
+  let seed = 777;
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) { seed = (seed * 1664525 + 1013904223) >>> 0; d[i] = (seed / 2147483648 - 1) * Math.pow(1 - i / len, 2.6); }
+  }
+  const node = ctx.createConvolver();
+  node.buffer = buf;
+  return node;
+}
+
+function build(ctx, withMusic) {
+  const noise = makeNoise(ctx);
+  const master = ctx.createGain();
+  const comp = ctx.createDynamicsCompressor();
+  Object.assign(comp.threshold, { value: -16 }); comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.18;
+  master.connect(comp).connect(ctx.destination);
+  master.gain.setValueAtTime(1, 0);
+  master.gain.setValueAtTime(1, DURATION - 0.9);
+  master.gain.linearRampToValueAtTime(0, DURATION - 0.15);
+
+  const reverb = makeReverb(ctx);
+  const wet = ctx.createGain(); wet.gain.value = 0.16;
+  reverb.connect(wet).connect(master);
+
+  const sfx = ctx.createGain(); sfx.gain.value = 1;
+  sfx.connect(master); sfx.connect(reverb);
+  const music = ctx.createGain(); music.gain.value = withMusic ? 1 : 0;
+  const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 9000; tone.Q.value = 0.5;
+  music.connect(tone).connect(master); tone.connect(reverb);
+
+  const env = (g, t, peak, attack, decay) => {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+  };
+  const osc = (dest, type, freq, t, peak, attack, decay, pan = 0, glideTo = 0, glideIn = 0) => {
+    const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t + glideIn);
+    const g = ctx.createGain(); env(g, t, peak, attack, decay);
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    o.connect(g).connect(p).connect(dest);
+    o.start(t); o.stop(t + attack + decay + 0.05);
+  };
+  const burst = (dest, t, peak, decay, type, freq, q, sweepTo = 0, sweepIn = 0, attack = 0.002) => {
+    const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + sweepIn);
+    const g = ctx.createGain(); env(g, t, peak, attack, decay);
+    src.connect(f).connect(g).connect(dest);
+    src.start(t, (t * 0.37) % 1.5); src.stop(t + attack + decay + 0.05);
+  };
+
+  // 马林巴：基音加一个高四倍的泛音，木头的声音就是这么来的
+  const marimba = (dest, t, note, peak, decay = 0.45, pan = 0) => {
+    const f = midi(note);
+    osc(dest, 'sine', f, t, peak, 0.004, decay, pan);
+    osc(dest, 'sine', f * 4, t, peak * 0.22, 0.003, decay * 0.18, pan);
+    osc(dest, 'sine', f * 9.2, t, peak * 0.06, 0.002, 0.03, pan);
+  };
+  // 卡林巴：更亮、更细
+  const kalimba = (dest, t, note, peak, decay = 0.6, pan = 0) => {
+    const f = midi(note);
+    osc(dest, 'sine', f, t, peak, 0.004, decay, pan);
+    osc(dest, 'sine', f * 2, t, peak * 0.3, 0.003, decay * 0.3, pan);
+    osc(dest, 'sine', f * 5.4, t, peak * 0.1, 0.002, 0.05, pan);
+  };
+  // 低音：三角波加一层高八度，手机的小喇叭也听得见
+  const bass = (dest, t, note, peak, decay = 0.3) => {
+    const f = midi(note);
+    osc(dest, 'triangle', f, t, peak, 0.006, decay);
+    osc(dest, 'sine', f * 2, t, peak * 0.42, 0.005, decay * 0.7);
+  };
+  const shaker = (dest, t, peak) => burst(dest, t, peak, 0.045, 'highpass', 6000, 0.7);
+
+  const sounds = {
+    ask: (t, { note }) => { marimba(sfx, t, note, 0.34, 0.7); marimba(sfx, t, note - 12, 0.12, 0.5); },
+    rise: (t) => osc(sfx, 'sine', 300, t, 0.05, 0.12, 0.3, 0, 520, 0.4),
+    pop: (t, { pitch = 1, gain = 1 }) => { osc(sfx, 'sine', 330 * pitch, t, 0.3 * gain, 0.003, 0.12, 0, 760 * pitch, 0.05); burst(sfx, t, 0.03 * gain, 0.02, 'bandpass', 2400, 1.5); },
+    tick: (t) => { burst(sfx, t, 0.1, 0.014, 'bandpass', 3400, 2); osc(sfx, 'sine', 1900, t, 0.04, 0.001, 0.012); },
+    // "咕咚"：先一声短的"咕"，再一声往下掉的"咚"，带一点水声
+    gulp: (t, { gain = 1 }) => {
+      osc(sfx, 'sine', 340, t, 0.4 * gain, 0.006, 0.09, 0, 250, 0.08);
+      osc(sfx, 'triangle', 340, t, 0.1 * gain, 0.006, 0.07, 0, 250, 0.08);
+      const u = t + 0.15;
+      osc(sfx, 'sine', 290, u, 0.55 * gain, 0.008, 0.3, 0, 140, 0.2);
+      osc(sfx, 'sine', 580, u, 0.18 * gain, 0.006, 0.16, 0, 280, 0.2);
+      osc(sfx, 'sine', 420, u + 0.01, 0.12 * gain, 0.003, 0.07, 0, 820, 0.05);
+    },
+    // 归档的水滴：一声往上一挑，带一个更轻的回声
+    plip: (t, { pitch = 1 }) => {
+      osc(sfx, 'sine', 760 * pitch, t, 0.24, 0.003, 0.16, -0.25, 1500 * pitch, 0.035);
+      osc(sfx, 'sine', 760 * pitch, t + 0.085, 0.08, 0.003, 0.12, -0.3, 1400 * pitch, 0.035);
+    },
+    whoosh: (t, { up, gain = 1 }) => burst(sfx, t, 0.045 * gain, 0.3, 'bandpass', up ? 500 : 2400, 0.8, up ? 2400 : 500, 0.4, 0.09),
+    boop: (t) => { osc(sfx, 'triangle', 620, t, 0.2, 0.006, 0.14, 0.35, 700, 0.08); osc(sfx, 'sine', 1240, t, 0.05, 0.004, 0.08, 0.35); },
+    ding: (t) => { marimba(sfx, t, 88, 0.16, 0.5, 0.2); marimba(sfx, t + 0.07, 91, 0.1, 0.5, 0.2); },
+    tada: (t) => { marimba(sfx, t, 79, 0.14, 0.4); marimba(sfx, t + 0.11, 84, 0.16, 0.6); },
+    settle: (t) => { marimba(sfx, t, 67, 0.13, 0.6); marimba(sfx, t + 0.16, 72, 0.15, 0.9); },
+    chord: (t, { final }) => {
+      [60, 64, 67, 72].concat(final ? [76] : []).forEach((n, i) => marimba(sfx, t + i * 0.075, n, 0.2, final ? 1.6 : 0.9, (i - 2) * 0.12));
+      bass(sfx, t, 48, 0.22, final ? 1.2 : 0.6);
+    },
+  };
+
+  const plan = sfxPlan();
+  for (const s of plan) sounds[s.kind](s.t, s);
+
+  // ---------- 配乐 ----------
+  // 从 7 秒起每 2 秒一小节，和弦四个一循环：C、Am、F、G。这样 15、23、31 秒的段落切换都落在小节线上。
+  const CHORDS = [
+    { root: 48, fifth: 55, ost: [60, 67, 64, 67] },  // C
+    { root: 45, fifth: 52, ost: [57, 64, 60, 64] },  // Am
+    { root: 41, fifth: 48, ost: [57, 60, 65, 60] },  // F
+    { root: 43, fifth: 50, ost: [59, 62, 67, 62] },  // G
+  ];
+  // 第二段的小旋律：只用五个音（C D E G A），留很多空，不和音效抢
+  const MELODY = [
+    [[0, 76], [0.5, 79], [1.0, 81], [1.25, 79], [1.5, 76]],
+    [[0, 74], [0.5, 76], [1.0, 72]],
+    [[0, 69], [0.5, 72], [1.0, 74], [1.25, 72], [1.5, 69]],
+    [[0, 67], [0.5, 69], [1.0, 74]],
+  ];
+  // 看板出现时的两拍引子
+  bass(music, 6.0, 43, 0.16);
+  bass(music, 6.5, 47, 0.18);
+  shaker(music, 6.5, 0.02); shaker(music, 6.75, 0.03);
+
+  for (let bar = 0; bar < 14; bar++) {
+    const t0 = 7 + bar * 2;
+    const ch = CHORDS[bar % 4];
+    const quiet = t0 >= 23 && t0 < 31; // "淡出"那一段：音乐也跟着变稀
+    const last = t0 >= 31;
+    // 低音的步子：蹦 · · 蹦 蹦，像鹈鹕走路
+    bass(music, t0, ch.root, quiet ? 0.15 : 0.22);
+    if (!quiet) { bass(music, t0 + 0.75, ch.root, 0.11, 0.18); bass(music, t0 + 1.0, ch.fifth, 0.17); bass(music, t0 + 1.5, ch.root + 12, 0.08, 0.16); }
+    // 马林巴的拨奏
+    for (let k = 0; k < 8; k++) {
+      if (quiet && k % 2) continue;
+      const level = (bar === 0 ? 0.05 : 0.085) * (k % 2 ? 0.7 : 1) * (quiet ? 0.8 : 1);
+      marimba(music, t0 + k * 0.25, ch.ost[k % 4], level, 0.3, -0.22);
+    }
+    // 沙锤：第二小节才进来
+    if (!quiet && bar >= 1) for (let k = 0; k < 8; k++) shaker(music, t0 + k * 0.25, k % 2 ? 0.028 : 0.016);
+    // 旋律：第二段，以及最后一段的前两小节
+    if ((t0 >= 15 && t0 < 23) || (last && bar < 14)) {
+      for (const [dt, note] of MELODY[bar % 4]) kalimba(music, t0 + dt, note, last ? 0.09 : 0.12, 0.6, 0.24);
+    }
+  }
+  // 35 秒：属和弦上停两拍，36 秒由结尾的和弦收住
+  bass(music, 35, 43, 0.2); bass(music, 35.5, 47, 0.2);
+  [59, 62, 67].forEach((n, i) => marimba(music, 35 + i * 0.25, n, 0.08, 0.3, -0.22));
+
+  // "淡出"那一段，音色跟着暗下去，结束后再亮回来
+  tone.frequency.setValueAtTime(9000, 23.5);
+  tone.frequency.exponentialRampToValueAtTime(1100, 28.6);
+  tone.frequency.setValueAtTime(1100, 29.6);
+  tone.frequency.exponentialRampToValueAtTime(9000, 31);
+  music.gain.setValueAtTime(withMusic ? 1 : 0, 23.5);
+  music.gain.linearRampToValueAtTime(withMusic ? 0.7 : 0, 28.6);
+  music.gain.setValueAtTime(withMusic ? 0.7 : 0, 30.2);
+  music.gain.linearRampToValueAtTime(withMusic ? 1 : 0, 31);
+  return plan;
+}
+
+// ---------- 写文件、核对 ----------
+
+function toWav(left, right, scale) {
+  const n = left.length;
+  const buf = Buffer.alloc(44 + n * 4);
+  buf.write('RIFF', 0); buf.writeUInt32LE(36 + n * 4, 4); buf.write('WAVEfmt ', 8);
+  buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(2, 22);
+  buf.writeUInt32LE(RATE, 24); buf.writeUInt32LE(RATE * 4, 28); buf.writeUInt16LE(4, 32); buf.writeUInt16LE(16, 34);
+  buf.write('data', 36); buf.writeUInt32LE(n * 4, 40);
+  for (let i = 0; i < n; i++) {
+    buf.writeInt16LE(Math.round(limit(left[i] * scale) * 32767), 44 + i * 4);
+    buf.writeInt16LE(Math.round(limit(right[i] * scale) * 32767), 46 + i * 4);
+  }
+  return buf;
+}
+// 整体提一点响度，最响的那几下（"咕咚"、"啵"）用一条平滑的曲线压住，不会削顶
+const KNEE = 0.62, ROOM = 0.33;
+const limit = (x) => { const a = Math.abs(x); return a <= KNEE ? x : Math.sign(x) * (KNEE + ROOM * Math.tanh((a - KNEE) / ROOM)); };
+const stats = (d, from, to) => {
+  let peak = 0, sum = 0;
+  const a = Math.max(0, Math.round(from * RATE)), b = Math.min(d.length, Math.round(to * RATE));
+  for (let i = a; i < b; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; sum += d[i] * d[i]; }
+  return { peak, rms: Math.sqrt(sum / Math.max(1, b - a)) };
+};
+const db = (x) => +(20 * Math.log10(Math.max(x, 1e-9))).toFixed(1);
+
+(async () => {
+  const out = {};
+  try {
+    const render = async (withMusic) => {
+      const ctx = new OfflineAudioContext(2, RATE * DURATION, RATE);
+      const plan = build(ctx, withMusic);
+      const buf = await ctx.startRendering();
+      return { plan, L: buf.getChannelData(0), R: buf.getChannelData(1) };
+    };
+    const sfx = await render(false);
+    const full = await render(true);
+    // 两版用同一个放大倍数：以"音效加配乐"那一版的最大音量为准，留一点余量
+    const peak = Math.max(stats(full.L, 0, DURATION).peak, stats(full.R, 0, DURATION).peak);
+    const scale = (0.89 / peak) * 1.55;
+    const dir = arg('out');
+    fs.writeFileSync(path.join(dir, 'audio-sfx.wav'), toWav(sfx.L, sfx.R, scale));
+    fs.writeFileSync(path.join(dir, 'audio-full.wav'), toWav(full.L, full.R, scale));
+
+    // 核对一：每个音效是不是在它该在的时刻响起来（之前的一小段比之后的一小段明显安静）
+    const missed = [];
+    for (const s of sfx.plan) {
+      if (s.kind === 'whoosh' || s.kind === 'rise') continue; // 这两个是慢慢起来的，没有明确的起点
+      const before = stats(sfx.L, s.t - 0.012, s.t - 0.001).rms + stats(sfx.R, s.t - 0.012, s.t - 0.001).rms;
+      const after = stats(sfx.L, s.t + 0.002, s.t + 0.03).rms + stats(sfx.R, s.t + 0.002, s.t + 0.03).rms;
+      if (!(after > 0.004 && after > before * 1.5)) missed.push(`${s.kind}@${s.t}`);
+    }
+    out.sounds = sfx.plan.length;
+    out.plan = sfx.plan.map((s) => `${s.t.toFixed(2)} ${s.kind}`);
+    out.missedOnsets = missed;
+    // 核对二：音量。有没有削顶，各段大概多响，结尾有没有收干净
+    const sections = { hook: [0, 6], put: [6, 15], use: [15, 23], fade: [23, 31], tuck: [31, 36], end: [36, 40] };
+    out.scale = +scale.toFixed(3);
+    out.fullPeakDb = db(limit(peak * scale));
+    out.clipped = (() => { let n = 0; for (let i = 0; i < full.L.length; i++) if (Math.abs(limit(full.L[i] * scale)) >= 0.999 || Math.abs(limit(full.R[i] * scale)) >= 0.999) n++; return n; })();
+    out.rmsDb = {};
+    for (const [name, [a, b]] of Object.entries(sections)) {
+      out.rmsDb[name] = { full: db(stats(full.L, a, b).rms * scale), sfxOnly: db(stats(sfx.L, a, b).rms * scale) };
+    }
+    out.lastTenthDb = db(stats(full.L, DURATION - 0.1, DURATION).rms * scale);
+    out.silentGaps = (() => { // 配乐那一版里，有没有超过 1.2 秒完全没声音的地方
+      const gaps = []; let start = -1;
+      for (let t = 0; t < DURATION - 0.3; t += 0.05) {
+        const quiet = stats(full.L, t, t + 0.05).rms * scale < 0.0015;
+        if (quiet && start < 0) start = t;
+        if (!quiet && start >= 0) { if (t - start > 1.2) gaps.push(`${start.toFixed(1)}–${t.toFixed(1)}`); start = -1; }
+      }
+      return gaps;
+    })();
+  } catch (err) {
+    out.error = String((err && err.stack) || err);
+  }
+  ipcRenderer.send('done', out);
+})();
+</script>

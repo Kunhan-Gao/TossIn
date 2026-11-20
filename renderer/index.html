@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src file: data:">
+<title>先放这儿</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="drag"></div>
+<div id="ctl">
+  <button id="b-look" data-i18n-title="ctl.look"><svg viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="4.4"/><path class="half" d="M5.5 1.1a4.4 4.4 0 0 1 0 8.8z"/></svg></button>
+  <button id="b-top" data-i18n-title="ctl.top"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.2"/></svg></button>
+  <button id="b-edge" data-i18n-title="ctl.edge"><svg viewBox="0 0 10 10"><path d="M1.2 5h4.6M4 3.2L5.8 5 4 6.8M8.6 1.4v7.2"/></svg></button>
+  <button id="b-min" data-i18n-title="ctl.min"><svg viewBox="0 0 10 10"><path d="M1.5 5h7"/></svg></button>
+  <button id="b-close" data-i18n-title="ctl.close"><svg viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6"/></svg></button>
+</div>
+
+<main id="board"><div id="stage"></div></main>
+<div id="empty" hidden>
+  <button id="pet" data-i18n-title="ctl.look">
+    <svg viewBox="0 0 64 36">
+      <path class="water" d="M2 31H62"/>
+      <g class="bob">
+        <path class="bd" d="M7.5 25 C6.5 17.5 16 13.2 26.5 15 C34 16.4 37.6 22.5 36.6 30 L12 30 C9.3 29.4 7.8 27.6 7.5 25 Z"/>
+        <path class="nk" d="M31.5 22 C32.8 18.5 31.8 15.5 33 12"/>
+        <circle class="bd" cx="33.6" cy="9.4" r="5.7"/>
+        <path class="bd bill" d="M37 5.9 L55.4 13.6 Q57 14.6 56.1 16.4 L37.6 12.7 Z"/>
+        <path class="pc" d="M37.8 12.5 L56 16.2 C53.4 22.6 47.4 25.6 42.8 23.8 C39.8 22.6 38 20 37.5 16.8 Z"/>
+        <circle class="ey" cx="35.2" cy="8.2" r="1.1"/>
+      </g>
+    </svg>
+  </button>
+  <span>Ctrl + V</span>
+</div>
+
+<div id="find" hidden><input id="q" type="text" data-i18n-placeholder="search" autocomplete="off"></div>
+<div id="foot"></div>
+<button id="sed" hidden></button>
+<button id="undo" hidden></button>
+<div id="band" hidden></div>
+
+<div id="menu" hidden></div>
+<div id="guide" hidden>
+  <div class="g-head">
+    <h2 data-i18n="look"></h2>
+    <div id="langs"><button data-lang="zh">中文</button><button data-lang="en">English</button></div>
+  </div>
+  <div id="looks">
+    <button data-look="dusk" style="--sw:#2B3238;--dot:#FFA273"><i></i><span data-i18n="look.dusk"></span></button>
+    <button data-look="night" style="--sw:#11181C;--dot:#FF9C66"><i></i><span data-i18n="look.night"></span></button>
+    <button data-look="term" style="--sw:#0C0C0C;--dot:#E9A85B"><i></i><span data-i18n="look.term"></span></button>
+  </div>
+  <div class="keys">
+    <em data-i18n="g.put"></em>
+    <b>Ctrl+V</b><span data-i18n="d.paste"></span>
+    <b><button class="hk" data-hk="put"></button></b><span data-i18n="d.hotput"></span>
+    <b data-i18n="k.dragin"></b><span data-i18n="d.dragin"></span>
+    <b data-i18n="k.blank"></b><span data-i18n="d.blank"></span>
+    <em data-i18n="g.use"></em>
+    <b data-i18n="k.click"></b><span data-i18n="d.click"></span>
+    <b data-i18n="k.dbl"></b><span data-i18n="d.dbl"></span>
+    <b data-i18n="k.dragout"></b><span data-i18n="d.dragout"></span>
+    <em data-i18n="g.tidy"></em>
+    <b data-i18n="k.right"></b><span data-i18n="d.right"></span>
+    <b data-i18n="k.size"></b><span data-i18n="d.size"></span>
+    <b>Delete</b><span data-i18n="d.del"></span>
+    <b data-i18n="k.band"></b><span data-i18n="d.band"></span>
+    <b>Ctrl+C</b><span data-i18n="d.copy"></span>
+    <b>Ctrl+Z</b><span data-i18n="d.undo"></span>
+    <b>Ctrl+F</b><span data-i18n="d.find"></span>
+    <em data-i18n="g.win"></em>
+    <b data-i18n="k.wheel"></b><span data-i18n="d.wheel"></span>
+    <b><button class="hk" data-hk="show"></button></b><span data-i18n="d.hotshow"></span>
+    <b data-i18n="k.top"></b><span data-i18n="d.top"></span>
+    <b data-i18n="k.edge"></b><span data-i18n="d.edge"></span>
+  </div>
+  <button id="update" hidden></button>
+  <div id="about">
+    <button id="open-data" data-i18n="data"></button>
+    <span>TossIn <span id="ver"></span> · <button id="author" title="github.com/Kunhan-Gao">Kunhan Gao</button></span>
+  </div>
+  <div id="thanks">
+    <span class="t-label"><span data-i18n="thanks"></span><small data-i18n="thanks.note"></small></span>
+    <span class="t-names"><span>Wenhui Li,</span> <span>Liangliang Li,</span> <span>Lingtong Yu,</span> <span>Zilong Wang,</span> <span>Yichao Cui</span></span>
+  </div>
+</div>
+<div id="view" hidden><img alt=""></div>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

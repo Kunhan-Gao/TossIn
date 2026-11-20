@@ -1,0 +1,28 @@
+{
+  "name": "tossin",
+  "productName": "TossIn",
+  "version": "1.0.0",
+  "author": "Kunhan Gao",
+  "homepage": "https://github.com/Kunhan-Gao",
+  "repository": "github:Kunhan-Gao/TossIn",
+  "private": true,
+  "license": "MIT",
+  "description": "先放这儿：手头这阵子要用的文字、图片、网页，随手放上来，用完自己退场",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "electron dev/make-icons.js",
+    "pack": "node dev/pack.js",
+    "installer": "node dev/installer.js",
+    "release": "node dev/pack.js && node dev/installer.js",
+    "video": "node dev/video/make.js"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.4.1",
+    "mp4-muxer": "^5.2.2"
+  },
+  "dependencies": {
+    "koffi": "^3.3.8"
+  }
+}
