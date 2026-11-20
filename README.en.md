@@ -2,11 +2,11 @@
 
 <h1 align="center">TossIn</h1>
 
+<p align="center"><b>English</b> · <a href="README.md">简体中文</a></p>
+
 https://github.com/user-attachments/assets/ec9f6328-e2c1-4260-9986-deaf18d2079f
 
 <p align="center">A temporary desktop workspace for the work at hand.</p>
-
-<p align="center"><b>English</b> · <a href="README.md">简体中文</a></p>
 
 ![The TossIn board with text, a screenshot, links and a file on it](images/board.en.png)
 
