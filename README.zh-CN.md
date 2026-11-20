@@ -1,5 +1,7 @@
 <p align="center"><img src="images/icon.png" width="96" alt="先放这儿的图标：一只橙色喉囊的鹈鹕"></p>
 
+https://github.com/user-attachments/assets/0dc89a55-e2d2-4e75-9e96-ef276fa797d9
+
 <h1 align="center">先放这儿</h1>
 
 <p align="center">TossIn：为手头工作准备的桌面临时工作区。</p>
