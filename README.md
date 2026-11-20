@@ -1,5 +1,7 @@
 <p align="center"><img src="images/icon.png" width="96" alt="TossIn icon: a pelican with an orange pouch"></p>
 
+https://github.com/user-attachments/assets/ec9f6328-e2c1-4260-9986-deaf18d2079f
+
 <h1 align="center">TossIn</h1>
 
 <p align="center">A temporary desktop workspace for the work at hand.</p>
