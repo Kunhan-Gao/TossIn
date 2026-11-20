@@ -840,6 +840,13 @@
     if (!key || !(e.ctrlKey || e.altKey || e.metaKey)) return null;
     return [...mods, key].join('+');
   }
+  // 快捷键旁边那句说明：平时是它的用途；有问题时换成提醒（橙色）
+  const descOf = (button) => button.parentElement.nextElementSibling;
+  function describe(button, warning) {
+    const desc = descOf(button);
+    desc.textContent = warning || T(desc.dataset.i18n);
+    desc.classList.toggle('warn', !!warning);
+  }
   function renderHotkeys() {
     for (const b of guide.querySelectorAll('.hk')) {
       const info = hotkeys[b.dataset.hk];
@@ -847,7 +854,17 @@
       b.textContent = prettyKey(info.accel);
       b.classList.toggle('bad', !info.ok);
       b.title = info.ok ? T('hk.change') : T('hk.bad');
+      // 这个快捷键被别的程序占着、现在用不了：一直提醒，直到换一个
+      if (!b.warnTimer) describe(b, info.ok ? '' : T('hk.takenNow'));
     }
+    renderDot();
+  }
+  // 换快捷键没成功时，说清楚是和什么冲突
+  function conflictText(result) {
+    if (result.reason === 'same') return T('hk.same', { name: T(`hk.name.${result.what}`) });
+    if (result.reason === 'inapp') return T('hk.inapp', { name: T(`hk.use.${result.what}`) });
+    if (result.reason === 'common') return T('hk.common');
+    return T('hk.taken');
   }
   function stopRecording(message) {
     if (!recording) return;
@@ -856,13 +873,13 @@
     recording = null;
     yw.hotkeyRecording(false);
     button.classList.remove('rec');
+    clearTimeout(button.warnTimer);
+    button.warnTimer = null;
+    renderHotkeys();
     if (message) {
-      // 换失败了：先说一声，再变回原来的
-      button.textContent = message;
-      button.classList.add('bad');
-      setTimeout(renderHotkeys, 1400);
-    } else {
-      renderHotkeys();
+      // 换失败了：按键变回原来的，旁边说明为什么不行，过几秒恢复
+      describe(button, message);
+      button.warnTimer = setTimeout(() => { button.warnTimer = null; renderHotkeys(); }, 3200);
     }
   }
   function startRecording(button) {
@@ -876,11 +893,14 @@
       if (!accel) return; // 只按了修饰键，或者是不能用的键：继续等
       const result = await yw.setHotkey(which, accel);
       hotkeys = result.hotkeys;
-      stopRecording(result.ok ? '' : T('hk.taken'));
+      stopRecording(result.ok ? '' : conflictText(result));
     };
     recording = { button, onKey };
     button.classList.add('rec');
     button.classList.remove('bad');
+    clearTimeout(button.warnTimer);
+    button.warnTimer = null;
+    describe(button, '');
     button.textContent = T('hk.press');
     yw.hotkeyRecording(true);
     window.addEventListener('keydown', onKey, true);
@@ -896,7 +916,11 @@
   function renderUpdate() {
     updateEl.hidden = !update;
     if (update) updateEl.textContent = T('update', { v: update.version });
-    bLook.classList.toggle('new', !!update);
+    renderDot();
+  }
+  // 右上角按钮上的小点：有新版本，或者有快捷键被占着用不了
+  function renderDot() {
+    bLook.classList.toggle('new', !!update || Object.values(hotkeys).some((h) => !h.ok));
   }
   updateEl.addEventListener('click', () => yw.openUpdate());
   yw.on('update', (info) => { update = info; renderUpdate(); });
@@ -906,6 +930,20 @@
     const b = e.target.closest('[data-look]');
     if (b) setLook(b.dataset.look, true);
   });
+
+  // 边上的鹈鹕怎么把看板叫出来：点一下（留着），或者指针移上去（离开后自己收回）
+  let peekMode = init.peekMode;
+  function renderPeekMode() {
+    for (const b of guide.querySelectorAll('[data-peek]')) b.setAttribute('aria-pressed', String(b.dataset.peek === peekMode));
+  }
+  guide.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-peek]');
+    if (!b || b.dataset.peek === peekMode) return;
+    peekMode = b.dataset.peek;
+    yw.setPeekMode(peekMode);
+    renderPeekMode();
+  });
+  renderPeekMode();
 
   q.addEventListener('input', layout);
   sed.addEventListener('click', () => setMode(mode === 'arch' ? 'live' : 'arch'));

@@ -67,9 +67,9 @@ Click the pelican on an empty board, or the half-circle button at the top right,
 | `Ctrl`+wheel | Make everything larger or smaller |
 | `Ctrl+Alt+Space` | Show or hide the window |
 | Drag the top edge | Move the window; drag its borders to resize |
-| Top-right button | Tuck the board against the screen edge; click the pelican to bring it back |
+| Top-right button | Tuck the board against the screen edge |
 
-The two global shortcuts can be changed. Open the panel, click the shortcut, and press the new combination. If another program is already using a shortcut, the panel marks it so you can pick a different one.
+The two global shortcuts can be changed. Open the panel, click the shortcut, and press the new combination. One key does one thing: a combination is refused, with the reason shown, if it repeats the other global shortcut, takes a key the board already uses (such as `Ctrl+V`), or is common in other programs (such as `Ctrl+S`). If another program is already using a shortcut, a dot appears on the top-right button and the panel marks it so you can pick a different one.
 
 The tray icon's menu has **Always on top**, **Start with Windows**, **Open data folder** and **Quit**.
 
@@ -88,6 +88,7 @@ If you have one screen and do not want the board taking up space all the time, t
 
 - **Tuck**: move the pointer to the top of the board and click the "Tuck to screen edge" button at the top right.
 - **Bring back**: click the pelican. The board comes back and stays until you click that button again. The show/hide shortcut works too.
+- **Or open on hover**: in the panel, switch "Edge pelican" to "Hover". The board then comes out when the pointer rests on the pelican, and tucks itself back once the pointer leaves the board.
 - **Put something in**: drag it onto the pelican. The board comes out just to catch it and tucks back in once the pointer leaves.
 - **Move the pelican**: drag it up or down to get it out of your way.
 - If you use the global shortcut while the board is tucked away, the pelican at the edge opens its beak.

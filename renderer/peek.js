@@ -14,10 +14,19 @@ window.gulp = function gulp() {
   gulp.timer = setTimeout(() => root.classList.remove('go'), 1150);
 };
 
-// 点一下把看板叫回来（指针只是停在上面不算，免得路过屏幕边就弹出来）
+// 点一下把看板叫回来。指针停在上面一小会儿也会告诉主进程一声：
+// 只有在面板里选了"悬停呼出"时，主进程才会因此把看板叫出来（停一小会儿是免得路过屏幕边就弹出来）
+let hoverTimer = null;
 let press = null; // 按下时的位置；按住上下拖是挪鹈鹕的位置，没拖就是点击
+tab.addEventListener('pointerenter', () => {
+  if (press) return;
+  clearTimeout(hoverTimer);
+  hoverTimer = setTimeout(() => window.yw.peek('hover'), 220);
+});
+tab.addEventListener('pointerleave', () => clearTimeout(hoverTimer));
 tab.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
+  clearTimeout(hoverTimer);
   press = { y: e.screenY, moved: false };
   tab.setPointerCapture(e.pointerId);
 });

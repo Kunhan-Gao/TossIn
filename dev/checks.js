@@ -272,17 +272,33 @@ module.exports = {
     key({ key: 'F9', code: 'F9', ctrlKey: true, altKey: true });
     await sleep(400);
     out.after = state(put);
-    show.click();
-    await sleep(50);
-    key({ key: 'F9', code: 'F9', ctrlKey: true, altKey: true });
-    await sleep(300);
-    out.duplicate = state(show);
-    await sleep(1500);
-    out.duplicateSettled = state(show);
+    // 冲突：和另一个全局快捷键重复、占了看板里已有的按键、占了别的程序常用的按键。都不能换，而且要说清楚为什么
+    const desc = (b) => b.parentElement.nextElementSibling;
+    const attempt = async (button, o) => {
+      button.click();
+      await sleep(50);
+      key(o);
+      await sleep(300);
+      return { key: button.textContent, says: desc(button).textContent, warn: desc(button).classList.contains('warn') };
+    };
+    out.duplicate = await attempt(show, { key: 'F9', code: 'F9', ctrlKey: true, altKey: true });
+    out.inApp = await attempt(show, { key: 'v', code: 'KeyV', ctrlKey: true });
+    out.common = await attempt(show, { key: 's', code: 'KeyS', ctrlKey: true });
+    out.winKey = await attempt(put, { key: 'd', code: 'KeyD', metaKey: true });
+    await sleep(3400);
+    out.settled = { show: state(show), says: desc(show).textContent, warn: desc(show).classList.contains('warn'), putSays: desc(put).textContent };
+    out.allowed = await attempt(show, { key: 'k', code: 'KeyK', ctrlKey: true, shiftKey: true });
+    // 呼出方式：点"悬停呼出"，记住了
+    document.querySelector('[data-peek="hover"]').click();
+    await sleep(200);
+    out.peekMode = { pressed: document.querySelector('[data-peek][aria-pressed="true"]').dataset.peek, saved: (await window.yw.init()).peekMode };
     show.click();
     key({ key: 'Escape', code: 'Escape' });
     out.escCancels = !show.classList.contains('rec');
     out.saved = (await window.yw.init()).hotkeys;
+    const g = document.getElementById('guide');
+    out.panelFits = g.scrollHeight <= g.clientHeight;
+    out.wrapped = $$('#guide .keys span').filter((e) => e.getBoundingClientRect().height > 30).map((e) => e.textContent);
     return out;
   })()`,
 

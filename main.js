@@ -310,9 +310,14 @@ function main() {
     win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
     win.once('ready-to-show', () => { if (!SHOT && !tucked) win.show(); });
 
+    // 记下窗口的位置和大小。差一两个像素不算改动：屏幕缩放不是 100% 时，读回来的数字本来就会差一点，
+    // 要是每次都当真，窗口会一点点变大
+    state.bounds = { ...bounds };
     const remember = () => {
       if (sliding || win.isMinimized() || win.isMaximized() || win.isFullScreen()) return;
-      state.bounds = win.getBounds();
+      const now = win.getBounds();
+      if (['x', 'y', 'width', 'height'].every((k) => Math.abs(now[k] - state.bounds[k]) <= 2)) return;
+      state.bounds = now;
       saveState();
     };
     win.on('resize', remember);
@@ -459,7 +464,8 @@ function main() {
     if (ducked) hidePeek(); else showPeek();
   }
 
-  // 滑一小段并淡入淡出。只改位置不改大小，免得在缩放过的屏幕上窗口尺寸被来回取整
+  // 滑一小段并淡入淡出。位置和大小每一步都用记下来的固定值整块设进去。
+  // 不能只设位置，也不能从窗口读回来再改：屏幕缩放不是 100% 时，那两种做法都会让窗口一次次变大
   function slide(showing) {
     const dir = edgeOf(home).side === 'right' ? 1 : -1;
     const start = Date.now();
@@ -467,7 +473,7 @@ function main() {
       const step = () => {
         const p = Math.min(1, (Date.now() - start) / SLIDE.ms);
         const away = showing ? (1 - p) ** 3 : p ** 2;
-        win.setPosition(Math.round(home.x + dir * SLIDE.distance * away), home.y);
+        win.setBounds({ ...home, x: Math.round(home.x + dir * SLIDE.distance * away) });
         win.setOpacity(1 - away);
         if (p < 1) setTimeout(step, 12); else resolve();
       };
@@ -479,13 +485,13 @@ function main() {
     tucked = true;
     sliding = true;
     visiting = null;
-    home = win.getBounds();
+    home = { ...state.bounds };
     state.tucked = true;
     state.hideTo = 'edge';
     saveState();
     await slide(false);
     win.hide();
-    win.setPosition(home.x, home.y);
+    win.setBounds(home);
     win.setOpacity(1);
     sliding = false;
     ducked = fullscreenInFront();
@@ -494,7 +500,7 @@ function main() {
   // 上次退出时看板是收着的：这次也从收着开始
   function startTucked() {
     tucked = true;
-    home = win.getBounds();
+    home = { ...state.bounds };
     ducked = fullscreenInFront();
     showPeek();
   }
@@ -510,6 +516,23 @@ function main() {
     if (stay) { win.show(); win.focus(); } else { win.showInactive(); win.moveTop(); }
     await slide(true);
     sliding = false;
+  }
+  const peekMode = () => (state.peekMode === 'hover' ? 'hover' : 'click');
+  function peekSays(what) {
+    if (!tucked) return;
+    if (what === 'hover') { if (peekMode() === 'hover') reveal(false); }
+    else if (what === 'click') reveal(peekMode() !== 'hover');
+    else if (what === 'drag') reveal(false);
+    else if (what === 'move') movePeek(screen.getCursorScreenPoint().y);
+    else if (what === 'moved') saveState();
+  }
+  // 上下挪鹈鹕：记下它在屏幕边上的比例，再按这个比例整块设位置和大小。
+  // 不从窗口读回位置再改——屏幕缩放不是 100% 时那样会让这个小窗口越拖越大，鹈鹕就被挤出屏幕了
+  function movePeek(cursorY) {
+    const { area } = edgeOf(home);
+    const y = Math.max(area.y, Math.min(area.y + area.height - PEEK.height, Math.round(cursorY - PEEK.height / 2)));
+    state.peekAt = (y - area.y) / Math.max(1, area.height - PEEK.height);
+    peek.setBounds(peekBounds().bounds);
   }
   // 屏幕变了：鹈鹕挪到新的边上
   function syncPeek() {
@@ -592,7 +615,22 @@ function main() {
   const HOTKEYS_ON = !TEST_DIR || !!argOf('hotkeys');
   const VALID_HOTKEY = /^(?:(?:Control|Alt|Shift|Super)\+){1,4}(?:[A-Z0-9]|F(?:[1-9]|1[0-2])|Space|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert)$/;
   const hotkeyOk = { put: false, show: false };
-  const hotkeyOf = (which) => (state.hotkeys && state.hotkeys[which]) || DEFAULT_HOTKEYS[which];
+  // 一个按键只对应一件事。全局快捷键不能：和另一个全局快捷键重复；占用看板里已经有用处的按键；
+  // 占用各种程序里通用的按键（否则在别的程序里按它，就被这里截走了）
+  const IN_APP = { 'Control+V': 'paste', 'Control+C': 'copy', 'Control+Z': 'undo', 'Control+F': 'find', 'Control+A': 'all', 'Control+0': 'zoom' };
+  const COMMON = /^(?:Control\+(?:[A-Z0-9]|F4|F5|Space|Insert|Home|End|Up|Down|Left|Right)|Alt\+(?:F4|Space|Left|Right)|Super\+(?:[A-Z0-9]|Space|Up|Down|Left|Right|Home))$/;
+  function hotkeyConflict(which, accel) {
+    const other = which === 'put' ? 'show' : 'put';
+    if (accel === hotkeyOf(other)) return { reason: 'same', what: other };
+    if (IN_APP[accel]) return { reason: 'inapp', what: IN_APP[accel] };
+    if (COMMON.test(accel)) return { reason: 'common' };
+    return null;
+  }
+  // 存着的快捷键如果按现在的规矩不能用了（比如旧版本里设的），就用回默认的
+  const hotkeyOf = (which) => {
+    const saved = state.hotkeys && state.hotkeys[which];
+    return saved && VALID_HOTKEY.test(saved) && !IN_APP[saved] && !COMMON.test(saved) ? saved : DEFAULT_HOTKEYS[which];
+  };
   const hotkeyActions = {
     put: async () => {
       const added = await captureClipboard();
@@ -726,7 +764,7 @@ function main() {
               for (const want of ['left', 'right']) {
                 const area = screen.getDisplayMatching(win.getBounds()).workArea;
                 const size = win.getBounds();
-                win.setPosition(want === 'right' ? area.x + area.width - size.width : area.x, area.y + 40);
+                win.setBounds({ ...size, x: want === 'right' ? area.x + area.width - size.width : area.x, y: area.y + 40 });
                 await wait(200);
                 const before = win.getBounds();
                 await js(`document.getElementById('b-edge').click()`);
@@ -748,7 +786,7 @@ function main() {
                 const inside = { x: after.x + 50, y: after.y + 50 };
                 const outside = { x: want === 'right' ? after.x - 300 : after.x + after.width + 300, y: after.y + 50 };
                 await visitTick(inside); await visitTick(outside); await wait(800);
-                log.push(`[edge:${want}] click: revealed=${win.isVisible()} peekHidden=${!peek.isVisible()} sameBounds=${JSON.stringify(after) === JSON.stringify(before)} opacity=${win.getOpacity()} remembered=${state.tucked} autoTuck=${await visitTick(outside)} stillOut=${win.isVisible() && !tucked}`);
+                log.push(`[edge:${want}] click: revealed=${win.isVisible()} peekHidden=${!peek.isVisible()} sameBounds=${['x', 'y', 'width', 'height'].every((k) => Math.abs(after[k] - before[k]) <= 2)} opacity=${win.getOpacity()} remembered=${state.tucked} autoTuck=${await visitTick(outside)} stillOut=${win.isVisible() && !tucked}`);
 
                 // 拖着东西移到鹈鹕上：临时出来，指针进来再离开后收回去
                 await tuck(); await wait(300);
@@ -784,6 +822,35 @@ function main() {
                 log.push(`[edge:${want}] tray: board=${win.isVisible()} peekVisible=${peek.isVisible()} remembered=${state.tucked}/${state.hideTo}`);
                 showWindow();
                 await wait(300);
+              }
+              // 屏幕缩放不是 100% 时（测试时用 --force-device-scale-factor 模拟），来回收放和上下挪鹈鹕都不能让窗口变大
+              {
+                const before = win.getBounds();
+                for (let n = 0; n < 8; n++) { await tuck(); await wait(60); await reveal(true); await wait(60); }
+                const after = win.getBounds();
+                await tuck(); await wait(300);
+                const area = edgeOf(home).area;
+                for (let n = 0; n < 150; n++) movePeek(area.y + 100 + n * 3);
+                const pb = peek.getBounds();
+                log.push(`[scale] factor=${screen.getPrimaryDisplay().scaleFactor} boardGrew=${after.width - before.width}x${after.height - before.height} boardMoved=${after.x - before.x},${after.y - before.y} peekSize=${pb.width}x${pb.height} peekOffEdge=${area.x + area.width - pb.x - pb.width} peekAt=${state.peekAt.toFixed(2)}`);
+                // 两种呼出方式
+                state.peekMode = 'click';
+                peekSays('hover'); await wait(300);
+                const clickModeIgnoresHover = tucked;
+                state.peekMode = 'hover';
+                peekSays('hover'); await wait(400);
+                const b = win.getBounds();
+                const opened = win.isVisible() && !win.isFocused() && !!visiting;
+                await visitTick({ x: b.x + 40, y: b.y + 40 });
+                await visitTick({ x: b.x - 400, y: b.y + 40 }); await wait(700);
+                const closed = await visitTick({ x: b.x - 400, y: b.y + 40 });
+                log.push(`[mode] clickModeIgnoresHover=${clickModeIgnoresHover} hoverOpens=${opened} leavesAndTucks=${closed} tucked=${tucked}`);
+                peekSays('click'); await wait(400);
+                log.push(`[mode] hoverModeClickIsAlsoTemporary=${!!visiting}`);
+                state.peekMode = 'click';
+                await visitTick({ x: b.x + 40, y: b.y + 40 }); await visitTick({ x: b.x - 400, y: b.y + 40 }); await wait(700); await visitTick({ x: b.x - 400, y: b.y + 40 }); await wait(300);
+                peekSays('click'); await wait(400);
+                log.push(`[mode] clickModeStays=${win.isVisible() && !visiting && !tucked}`);
               }
               // 全屏判断（用假的窗口数据）：全屏的算，最大化的、桌面、自己的窗口、另一块屏幕上的不算
               await tuck(); await wait(300);
@@ -946,6 +1013,7 @@ function main() {
       theme: themeOf(),
       lang: langOf(),
       hotkeys: hotkeyInfo(),
+      peekMode: peekMode(),
       update,
       version: app.getVersion().split('.').slice(0, 2).join('.'),
       firstRun,
@@ -1058,17 +1126,18 @@ function main() {
     refreshTray();
   });
 
-  // 边上的鹈鹕：点一下，看板回来并留着；拖着东西过来，看板临时出来接一下；按住上下拖是挪它的位置
+  // 边上的鹈鹕说了什么。呼出方式有两种，在面板里选：
+  //   click（默认）：点一下，看板回来并一直留着，要自己点按钮才收回去
+  //   hover：指针移上去看板就出来，离开看板后自己收回去
+  // 两种方式下，拖着东西移到鹈鹕上都是临时出来接一下；按住上下拖是挪它的位置
   ipcMain.on('peek', (e, what) => {
-    if (!peek || peek.isDestroyed() || e.sender !== peek.webContents || !tucked) return;
-    if (what === 'click') reveal(true);
-    else if (what === 'drag') reveal(false);
-    else if (what === 'move') {
-      const { area } = edgeOf(home);
-      const y = Math.max(area.y, Math.min(area.y + area.height - PEEK.height, Math.round(screen.getCursorScreenPoint().y - PEEK.height / 2)));
-      peek.setPosition(peek.getBounds().x, y);
-      state.peekAt = (y - area.y) / Math.max(1, area.height - PEEK.height);
-    } else if (what === 'moved') saveState();
+    if (!peek || peek.isDestroyed() || e.sender !== peek.webContents) return;
+    peekSays(what);
+  });
+  ipcMain.on('setPeekMode', (_e, mode) => {
+    if (mode !== 'click' && mode !== 'hover') return;
+    state.peekMode = mode;
+    saveState();
   });
 
   // 录制新快捷键时先把现有的全放开，不然按下旧组合会直接触发
@@ -1078,16 +1147,15 @@ function main() {
     else registerHotkeys();
   });
   ipcMain.handle('setHotkey', (_e, which, accel) => {
-    const other = which === 'put' ? 'show' : 'put';
-    if (!DEFAULT_HOTKEYS[which] || !VALID_HOTKEY.test(String(accel)) || accel === hotkeyOf(other)) {
-      return { ok: false, hotkeys: hotkeyInfo() };
-    }
+    if (!DEFAULT_HOTKEYS[which] || !VALID_HOTKEY.test(String(accel))) return { ok: false, reason: 'invalid', hotkeys: hotkeyInfo() };
+    const conflict = hotkeyConflict(which, accel);
+    if (conflict) return { ok: false, ...conflict, hotkeys: hotkeyInfo() };
     if (HOTKEYS_ON) {
       // 先试着注册一下：注册不上说明被别的程序占着，保留原来的
       globalShortcut.unregisterAll();
       if (!tryRegister(accel, hotkeyActions[which])) {
         registerHotkeys();
-        return { ok: false, hotkeys: hotkeyInfo() };
+        return { ok: false, reason: 'taken', hotkeys: hotkeyInfo() };
       }
     }
     state.hotkeys = { ...state.hotkeys, [which]: accel };

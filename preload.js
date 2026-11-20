@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('yw', {
   copy: (id) => ipcRenderer.invoke('copy', id),
   copyMany: (ids) => ipcRenderer.invoke('copyMany', ids),
   peek: (what) => ipcRenderer.send('peek', what),
+  setPeekMode: (mode) => ipcRenderer.send('setPeekMode', mode),
   open: (id) => ipcRenderer.invoke('open', id),
   drag: (id) => ipcRenderer.send('drag', id),
   win: (action) => ipcRenderer.invoke('win', action),

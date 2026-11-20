@@ -239,7 +239,7 @@ body.over::after {
   width: min(392px, calc(100vw - 20px)); max-height: calc(100vh - 44px); overflow-y: auto;
   padding: 14px 18px 12px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow);
-  font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink);
+  font-family: var(--sans); font-size: 13px; line-height: 1.45; color: var(--ink);
   scrollbar-width: thin; scrollbar-color: var(--line) transparent;
 }
 #guide h2 { margin: 0 0 8px; font-size: 11px; font-weight: 500; letter-spacing: .14em; color: var(--muted); }
@@ -249,10 +249,10 @@ body.over::after {
 #langs button { all: unset; color: var(--cold); cursor: pointer; }
 #langs button:hover, #langs button[aria-pressed="true"] { color: var(--ink); }
 #langs button:focus-visible { outline: 1px solid var(--hot); outline-offset: 2px; }
-#looks { display: flex; gap: 4px; margin-bottom: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+#looks { display: flex; gap: 4px; margin-bottom: 9px; padding-bottom: 7px; border-bottom: 1px solid var(--line); }
 #looks button {
   all: unset; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
-  padding: 9px 0 6px; border-radius: 6px; cursor: pointer; font-size: 11.5px; color: var(--muted);
+  padding: 7px 0 4px; border-radius: 6px; cursor: pointer; font-size: 11.5px; color: var(--muted);
 }
 #looks button:hover { background: color-mix(in oklab, var(--line) 55%, transparent); }
 #looks button:focus-visible { outline: 1px solid var(--hot); }
@@ -265,6 +265,12 @@ body.over::after {
 .keys em:first-child { margin-top: 0; }
 .keys b { font-family: var(--mono); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .keys span { color: var(--muted); }
+.keys span.warn { color: var(--hot); }
+/* 边上的鹈鹕怎么呼出：两个选项，选中的那个亮起来 */
+#peeks button { all: unset; color: var(--cold); cursor: pointer; }
+#peeks button:hover, #peeks button[aria-pressed="true"] { color: var(--ink); }
+#peeks button:focus-visible { outline: 1px solid var(--hot); outline-offset: 2px; }
+#peeks i { margin: 0 .5em; font-style: normal; color: var(--cold); }
 /* 可以改的快捷键：带一条虚线底，点一下进入录制 */
 .hk { all: unset; font: inherit; cursor: pointer; border-bottom: 1px dashed var(--cold); }
 .hk:hover { color: var(--hot); border-bottom-color: var(--hot); }
