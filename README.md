@@ -1,174 +1,175 @@
-<p align="center"><img src="images/icon.png" width="96" alt="TossIn icon: a pelican with an orange pouch"></p>
+<p align="center"><img src="images/icon.png" width="96" alt="先放这儿的图标：一只橙色喉囊的鹈鹕"></p>
 
-<h1 align="center">TossIn</h1>
+<h1 align="center">先放这儿</h1>
 
-https://github.com/user-attachments/assets/ec9f6328-e2c1-4260-9986-deaf18d2079f
+https://github.com/user-attachments/assets/0dc89a55-e2d2-4e75-9e96-ef276fa797d9
 
-<p align="center">A temporary desktop workspace for the work at hand.</p>
+<p align="center">TossIn：为手头工作准备的桌面临时工作区。</p>
 
-<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
+<p align="center"><a href="README.en.md">English</a> · <b>简体中文</b></p>
 
-![The TossIn board with text, a screenshot, links and a file on it](images/board.en.png)
+![看板上放着文字、截图、链接和文件](images/board.zh.png)
 
-TossIn gathers the text, screenshots, links and files you need for your current work on one board. Keep it on a second monitor or at the edge of your screen, and glance at, compare, copy or open things as you need them, without filing away something you will only use for a short while.
+“先放这儿”把当前工作临时要用的文字、截图、链接和文件集中在一块看板上。摆在副屏，或贴在屏幕边上，需要时随手查看、对照、复制或打开，不必为了短期使用而专门归类保存。
 
-## Why
+## 为什么做这个
 
-While you work, there are always things you need to keep within reach for a while: a command you keep reusing, a screenshot you compare against, a few pages you go back and forth between, files you are about to drag into another program.
+工作时，总有一些东西需要暂时放在手边：一条反复使用的命令、一张用来对照的截图、几个来回查看的网页，还有准备拖进其他程序的文件。
 
-They may not be worth keeping for long, but for now they need to be easy to get at. Put them in a folder and you keep opening it to look for them. Send them to a chat with yourself and new messages soon push them out of sight. Leave them spread across windows and tabs and you keep switching.
+它们不一定值得长期收藏，却需要在眼下这段时间里方便取用。放进文件夹，要来回打开查找；发给自己的聊天窗口，很快就被新消息顶走；散在不同窗口和标签页里，又需要不断切换。
 
-TossIn is made for that stretch of temporary use. You do not have to decide which category something belongs to first, or turn everything into a note. Put it within reach, carry on working, and find it when you need it.
+“先放这儿”就是为这段临时使用的过程准备的：不用先想放在哪个分类，也不用把所有东西都变成笔记。先放到手边，继续做事，需要时就能找到。
 
-## What it does
+## 它能做什么
 
-- **Different materials, side by side.** Text, screenshots, links and files all go on the same board, so you can look at them and compare them together.
-- **Put things in without breaking your flow.** Paste with `Ctrl+V`, drag things in, or click an empty spot and type. You can also press a global shortcut from any other window, without switching to the board.
-- **Use things directly.** Click text or an image to copy it, click a link or a file to open it, or drag an item into another program.
-- **No categories to set up.** No folders or tags. Pin what matters; the rest changes how it is shown as you use it. Items left unused are archived automatically after about eight days, and can still be brought back while they are kept.
+- **不同材料，放在一起。** 文字、截图、链接和文件都能放到同一块看板上，方便同时查看和对照。
+- **随手放，不打断工作。** 按 `Ctrl+V` 粘贴、直接拖入，或点空白处打字；也可以在其他窗口按全局快捷键，不用切换到看板。
+- **需要时，直接取用。** 单击文字或图片即可复制，单击链接或文件即可打开，也可以把材料拖进其他程序。
+- **不必建立分类。** 不需要文件夹或标签。重要的内容可以置顶，其余内容会随使用情况调整显示；持续未用的内容约八天后自动归档，归档后仍可在保留期内找回。
 
-## Install
 
-TossIn is currently available for Windows (Windows 10 or 11, 64-bit). A macOS version is planned.
+## 安装
 
-Download the latest version from the [Releases page](https://github.com/Kunhan-Gao/TossIn/releases). Pick either one:
+目前提供 Windows 版（64 位的 Windows 10 或 11），macOS 版在计划中。
 
-- **Installer**, `TossIn-Setup-x.y.z.exe`: run it, and a TossIn icon appears on the desktop and in the Start menu. It does not need administrator rights. To update later, install the new version over the old one; what is on your board is kept.
-- **Portable**, `TossIn-x.y.z-win-x64.zip`: unzip it anywhere and run `TossIn.exe` inside.
+到 [Releases 页面](https://github.com/Kunhan-Gao/TossIn/releases) 下载最新版本，两种任选：
 
-The app is not code-signed, so the first time you run it the system may show "Windows protected your PC". Choose **More info**, then **Run anyway**.
+- **安装版** `TossIn-Setup-x.y.z.exe`：双击安装，桌面和开始菜单里会多一个“先放这儿”的图标。不需要管理员权限。以后装新版本直接覆盖安装，看板上的内容不受影响。
+- **免安装版** `TossIn-x.y.z-win-x64.zip`：解压到任意位置，运行里面的 `TossIn.exe`。
 
-To uninstall the installed version, find TossIn under **Apps** in Windows Settings and choose Uninstall. It asks whether to also delete what is on your board and your settings; by default they are kept.
+程序没有数字签名，第一次运行时系统可能提示“Windows 已保护你的电脑”。点 **更多信息**，再点 **仍要运行**。
 
-On first launch the board opens on your second monitor if you have one, otherwise as a strip along the right edge of the screen. Move and resize it however you like; it remembers.
+卸载安装版：在系统设置的“应用”里找到 TossIn，点卸载。卸载时会问要不要一并删除看板上的内容和设置，默认保留。
 
-## How to use it
+第一次启动时，有副屏就铺在副屏上，没有就在屏幕右侧占一条。之后随意移动、缩放，它会记住。
 
-Click the pelican on an empty board, or the half-circle button at the top right, to see this list inside the app.
+## 怎么用
+
+点空看板上的鹈鹕，或者右上角的半圆按钮，可以在软件里看到这张表。
 
 | | |
 |---|---|
-| **Put** | |
-| `Ctrl+V` | Put in whatever is on the clipboard: text, a screenshot, a link, files |
-| `Ctrl+Alt+V` | Do the same from any window, without switching to the board |
-| Drag in | Images, files, selected text |
-| Click blank space | Type directly; `Enter` to finish |
-| **Use** | |
-| Click | Copy the item; links and files open instead |
-| Double-click | Edit text, or enlarge an image |
-| Drag out | Drop the item into another program |
-| **Tidy** | |
-| Right-click | Pin, archive, delete |
-| `Alt`+wheel | Make the item under the pointer larger or smaller; right-click to reset its size |
-| `Delete` | Delete the item under the pointer |
-| Drag a box | Select several items; `Ctrl`+click adds one at a time |
-| `Ctrl+C` | Copy the selected items, or the item under the pointer when nothing is selected |
-| `Ctrl+Z` | Undo the last delete (for a few seconds) |
-| `Ctrl+F` | Search the archive; also reachable from the bottom-left corner |
-| **Window** | |
-| `Ctrl`+wheel | Make everything larger or smaller |
-| `Ctrl+Alt+Space` | Show or hide the window |
-| Drag the top edge | Move the window; drag its borders to resize |
-| Top-right button | Tuck the board against the screen edge |
+| **放** | |
+| `Ctrl+V` | 放入剪贴板里的内容：文字、截图、网址、文件 |
+| `Ctrl+Alt+V` | 在任何窗口里直接放入，不用切到看板 |
+| 拖进来 | 图片、文件、选中的文字 |
+| 点空白处 | 直接打字，回车完成 |
+| **用** | |
+| 单击 | 复制；网址和文件是打开 |
+| 双击 | 编辑文字，放大图片 |
+| 拖出去 | 直接拖进别的程序 |
+| **整理** | |
+| 右键 | 置顶、归档、删除 |
+| `Alt`+滚轮 | 单独放大、缩小指针下面的那一条；右键可以恢复大小 |
+| `Delete` | 删除指针下面的那一条 |
+| 拖框 | 多选；`Ctrl`+单击可以逐个加选 |
+| `Ctrl+C` | 复制选中的几条；没有选中时复制指针下面的那一条 |
+| `Ctrl+Z` | 撤销刚才的删除（几秒内有效） |
+| `Ctrl+F` | 搜索归档；左下角也能进 |
+| **窗口** | |
+| `Ctrl`+滚轮 | 整体放大、缩小 |
+| `Ctrl+Alt+空格` | 显示或隐藏窗口 |
+| 拖顶部边缘 | 移动窗口；拉边框改大小 |
+| 右上角的按钮 | 把看板收到屏幕边上 |
 
-The two global shortcuts can be changed. Open the panel, click the shortcut, and press the new combination. One key does one thing: a combination is refused, with the reason shown, if it repeats the other global shortcut, takes a key the board already uses (such as `Ctrl+V`), or is common in other programs (such as `Ctrl+S`). If another program is already using a shortcut, a dot appears on the top-right button and the panel marks it so you can pick a different one.
+两个全局快捷键可以改：打开面板，点一下那个快捷键，再按下新的组合。一个按键只对应一件事：新的组合如果和另一个全局快捷键重复、占了看板里已有的按键（比如 `Ctrl+V`），或者是别的程序里常用的按键（比如 `Ctrl+S`），会提示原因，不会生效。如果某个快捷键被别的程序占用了，右上角的按钮上会出现一个小点，面板里会标出来，换一个就行。
 
-The tray icon's menu has **Always on top**, **Start with Windows**, **Open data folder** and **Quit**.
+托盘图标的右键菜单里有 **窗口总在最前**、**开机自启**、**打开数据文件夹** 和 **退出**。
 
-![The panel with appearance, language, shortcuts and the open-mouthed pelican](images/guide.en.png)
+![面板：外观、语言、快捷键，以及张着嘴的鹈鹕](images/guide.zh.png)
 
-### A few details
+### 几个细节
 
-- **Copying several items.** `Ctrl+C` on a selection: if every selected item is an image or a file, the files themselves are copied, so you can paste them into a chat window or a folder. Otherwise the text is copied, one item per line.
-- **Long screenshots.** A very long screenshot is not shrunk to fit. The board shows only its top part; double-click it to scroll through the whole image.
-- **Putting in something twice.** Putting in an item that is already on the board does not create a copy. The existing item comes back to the top.
-- **Knowing it was caught.** When you use the global shortcut while the board is hidden or covered by other windows, a small pelican pops up in the corner of the screen, opens its beak, and is gone a second later.
+- **一起复制。** 多选后按 `Ctrl+C`：选的全是图片或文件时，复制的是这些文件本身，可以直接粘贴到聊天窗口或文件夹里；其余情况复制的是文字，每条占一行。
+- **长截图。** 很长的截图不会被整体缩小，看板上只露出顶部一段，双击后可以上下滚动着看全图。
+- **重复放入。** 把看板上已经有的内容再放一次，不会多出一份，原来那条会回到最前面。
+- **放入时的反馈。** 用全局快捷键放入时，如果看板被隐藏或者被别的窗口挡住了，屏幕右下角会冒出一只小鹈鹕，张一下嘴，一秒后消失。看到它，就知道接住了。
 
-## Tucking it away
+## 收到屏幕边上
 
-If you have one screen and do not want the board taking up space all the time, tuck it against the screen edge. A small pelican stays there, peeking in.
+只有一块屏幕、不想让看板一直占着地方时，可以把它收到屏幕边上，只留一只探出头的小鹈鹕。
 
-- **Tuck**: move the pointer to the top of the board and click the "Tuck to screen edge" button at the top right.
-- **Bring back**: click the pelican. The board comes back and stays until you click that button again. The show/hide shortcut works too.
-- **Or open on hover**: in the panel, switch "Edge pelican" to "Hover". The board then comes out when the pointer rests on the pelican, and tucks itself back once the pointer leaves the board.
-- **Put something in**: drag it onto the pelican. The board comes out just to catch it and tucks back in once the pointer leaves.
-- **Move the pelican**: drag it up or down to get it out of your way.
-- If you use the global shortcut while the board is tucked away, the pelican at the edge opens its beak.
-- While another program is full screen (a video, a slideshow), the pelican hides and returns when it ends.
+- **收**：指针移到看板顶部，点右上角的“收到屏幕边上”按钮。
+- **回来**：点一下边上的鹈鹕，看板回来并一直留着，直到你再点那个按钮。显示/隐藏的快捷键也可以。
+- **另一种呼出方式**：在面板里把“边上的鹈鹕”改成“悬停呼出”。指针移到鹈鹕上看板就出来，指针离开看板后自己收回去。
+- **放入**：拖着内容移到鹈鹕上，看板会临时出来接一下，指针离开后自己收回去。
+- **挪位置**：按住鹈鹕上下拖，挪到不碍事的地方。
+- 看板收着的时候用全局快捷键放入，边上的鹈鹕会张一下嘴。
+- 别的程序全屏时（看视频、放幻灯片），鹈鹕会自己躲起来，退出全屏再出现。
 
-## How the display changes with use
+## 显示如何随使用变化
 
-Each item has a freshness that halves every two days. Using an item (copying, opening or editing it) resets it to fresh, and each use makes it last half a day longer, up to a week. Size, brightness and position on the board all follow freshness.
+每一条有一个“新鲜度”，每两天减半。用一次（复制、打开或编辑）就恢复到最新鲜，而且每用一次能多留半天，最多一周。大小、明暗和在看板上的位置都跟着新鲜度走。
 
-- **Never used**: archived after about eight days.
-- **Pinned**: stays fresh until you unpin it.
-- **Archived**: kept for 30 days, then deleted. Each archived item shows how many days it has left. Until then, search the archive and click an item to bring it back.
+- **一直没用过**：大约八天后归档。
+- **置顶**：一直保持最新鲜，直到取消置顶。
+- **已归档**：保留 30 天，之后删除。归档里每一条都标着还剩几天，在那之前可以搜索，点一下就捞回来。
 
-## Appearance and language
+## 外观和语言
 
-Three dark looks: **Dusk** (the default), **Night** and **Terminal**. The interface is available in English and Simplified Chinese. Both are switched in the panel.
+三种深色外观：**暮色**（默认）、**夜**、**终端**。界面有简体中文和英文。两者都在面板里切换。
 
-## Privacy and network use
+## 隐私和联网
 
-TossIn has no account and no telemetry, and it never uploads what you put on the board. It connects to the internet in exactly three cases:
+“先放这儿”没有账号，不收集使用数据，也不会上传你放在看板上的任何内容。它只在下面三种情况下联网：
 
-- **You put in a link.** The app requests that page once to read its title.
-- **You drag in an image from a web browser.** The app downloads that image so it can keep a copy.
-- **Update check.** Shortly after starting, and every 12 hours after that, the app asks GitHub for the latest release number of this repository. If there is a newer version, the panel shows a download link. It does not download or install anything by itself.
+- **放入一个网址时。** 程序会访问一次那个网页，读取它的标题。
+- **从浏览器拖入一张图片时。** 程序会下载那张图片，保存一份。
+- **检查新版本。** 启动后不久、之后每 12 小时，程序会向 GitHub 询问本仓库最新的版本号。有新版本时，面板里会出现下载入口。程序不会自己下载或安装任何东西。
 
-## Where your data lives
+## 数据放在哪
 
-Everything is stored on your own computer. On Windows that is `%APPDATA%\TossIn\data`:
+全部存在本机。Windows 上是 `%APPDATA%\TossIn\data`：
 
-- `index.json` holds the items.
-- `images\` holds the pictures you put in, as ordinary image files.
+- `index.json` 是所有条目。
+- `images\` 是你放进来的图片，都是普通的图片文件。
 
-Files you put in are not copied; the board only remembers where they are. Use **Open data folder** in the panel or the tray menu to get there.
+放进来的文件不会被复制，看板只记住它在哪。面板或托盘菜单里的 **打开数据文件夹** 可以直接到这里。
 
-## Build from source
+## 从源码构建
 
-You need Node.js 22.12 or newer.
+需要 Node.js 22.12 或更新的版本。
 
 ```
 npm install
 npm start
 ```
 
-The first `npm start` downloads the Electron runtime (about 150 MB). To build a runnable Windows folder in `dist\`:
+第一次 `npm start` 会下载 Electron 运行环境（约 150 MB）。要在 `dist\` 里生成 Windows 版的可运行文件夹：
 
 ```
 npm run pack
 ```
 
-To turn that into an installer and a portable zip:
+再做成安装包和免安装压缩包：
 
 ```
 npm run installer
 ```
 
-The installer step needs [NSIS](https://nsis.sourceforge.io/): unzip its portable build into `dev\tools\nsis\`, or install it system-wide.
+做安装包需要 [NSIS](https://nsis.sourceforge.io/)：把它的免安装版（zip）解压到 `dev\tools\nsis\` 下面，或者装到系统里。
 
-The demo video is generated by a script too: the picture is the real interface rendered frame by frame from a storyboard, and the sound is synthesized. The results land in `dist\video\`.
+演示视频也是脚本生成的：画面是真实界面按分镜逐帧渲染出来的，声音是程序合成的。成片在 `dist\video\` 里。
 
 ```
 npm run video
 ```
 
-## Good to know
+## 说明
 
-- TossIn is built on Electron. It takes roughly 350 MB on disk and about 175 MB of memory while running, almost all of it the bundled browser engine.
-- The icon is a pelican because its pouch is where it keeps things for now.
+- 程序基于 Electron，占用磁盘约 350 MB，运行时内存约 175 MB，几乎全是自带的浏览器内核。
+- 图标是鹈鹕，因为它嘴下面的喉囊，就是它“先放这儿”的地方。
 
-## Thanks
+## 致谢
 
-Thanks to these friends for their support (in no particular order):
+感谢以下朋友的支持（排名不分先后）：
 
-Wenhui Li, Liangliang Li, Lingtong Yu, Zilong Wang, Yichao Cui
+Wenhui Li、Liangliang Li、Lingtong Yu、Zilong Wang、Yichao Cui
 
-## Author
+## 作者
 
-Made by [Kunhan Gao](https://github.com/Kunhan-Gao).
+[Kunhan Gao](https://github.com/Kunhan-Gao)
 
-## License
+## 许可
 
 [MIT](LICENSE)
