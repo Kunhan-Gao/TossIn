@@ -89,6 +89,17 @@ body.arch #stage { margin-top: 4.4em; }
   transition: color .2s;
 }
 .mono .body { font-family: var(--mono); font-size: calc((.84 + var(--t) * .5) * var(--s, 1) * 1em); }
+/* 带格式的文字（表格、列表、加粗、链接）：结构保留，颜色和边框跟着主题走 */
+.rich .body { display: block; -webkit-line-clamp: unset; max-height: calc(var(--lines, 8) * 1.5em); white-space: normal; }
+.rich .body table { max-width: 100%; border-collapse: collapse; font-size: .86em; line-height: 1.4; }
+.rich .body td, .rich .body th { padding: .15em .55em; border: 1px solid color-mix(in oklab, currentColor 28%, transparent); vertical-align: top; }
+.rich .body th { font-weight: 700; }
+.rich .body p, .rich .body ul, .rich .body ol, .rich .body blockquote, .rich .body h1, .rich .body h2, .rich .body h3, .rich .body h4, .rich .body h5, .rich .body h6 { margin: 0 0 .35em; }
+.rich .body h1, .rich .body h2, .rich .body h3, .rich .body h4, .rich .body h5, .rich .body h6 { font-size: 1.08em; font-weight: 700; }
+.rich .body ul, .rich .body ol { padding-left: 1.3em; }
+.rich .body pre { margin: 0; white-space: pre-wrap; font-family: var(--mono); }
+.rich .body a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .24em; }
+.it.editing.rich .body { white-space: pre-wrap; max-height: none; overflow: visible; }
 .link .body {
   text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .24em;
   text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);

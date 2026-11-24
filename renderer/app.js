@@ -35,8 +35,11 @@
   const mouse = { x: -1, y: -1 };
   let band = null;            // 正在拖的选框
   let suppressClick = false;
-  let undoCount = 0;
+  let undoNote = null;        // 底部撤销入口上写的话
   let undoTimer = null;
+  const history = [];         // 做过的事，每一步记着怎么还原（最多 30 步）
+  const HISTORY_MAX = 30;
+  const dead = new Set();     // 撤销"放入"后的条目：别让迟到的更新把它们带回来
   let recording = null;       // 正在录制的快捷键
 
   // ---------- 温度 ----------
@@ -80,6 +83,30 @@
     return parts.join(' · ');
   }
 
+  // 带格式的文字（表格、列表、加粗、链接……）：只留结构，颜色和边框按当前主题画
+  const RICH_TAGS = new Set(['TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'CAPTION', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'DEL', 'SUB', 'SUP', 'BR', 'P', 'DIV', 'SPAN', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE', 'CODE', 'BLOCKQUOTE', 'A', 'HR']);
+  const DROP = new Set(['SCRIPT', 'STYLE', 'HEAD', 'TITLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'IFRAME', 'OBJECT', 'EMBED', 'IMG', 'FORM', 'INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'COL', 'COLGROUP']);
+  function richNodes(html) {
+    const out = document.createDocumentFragment();
+    const walk = (from, into) => {
+      for (const n of from.childNodes) {
+        if (n.nodeType === 3) { into.appendChild(document.createTextNode(n.nodeValue)); continue; }
+        if (n.nodeType !== 1) continue;
+        const tag = n.tagName.toUpperCase();
+        if (DROP.has(tag)) continue;
+        if (!RICH_TAGS.has(tag)) { walk(n, into); continue; }
+        const el = document.createElement(tag.toLowerCase());
+        if (tag === 'TD' || tag === 'TH') {
+          for (const a of ['colspan', 'rowspan']) { const v = parseInt(n.getAttribute(a), 10); if (v > 1 && v < 50) el.setAttribute(a, v); }
+        }
+        walk(n, el);
+        into.appendChild(el);
+      }
+    };
+    walk(new DOMParser().parseFromString(html, 'text/html').body, out);
+    return out;
+  }
+
   function build(it) {
     const el = document.createElement('div');
     el.className = `it ${it.type}`;
@@ -111,8 +138,12 @@
     const sub = el.querySelector('.sub');
     if (it.type === 'text') {
       // 整篇文章那么长的文字，看板上只放开头一段（复制和编辑时仍是全文）
-      if (!editing || editing.it !== it) body.textContent = it.text.length > SHOWN ? it.text.slice(0, SHOWN) : it.text;
-      el.classList.toggle('mono', isMono(it.text));
+      if (!editing || editing.it !== it) {
+        if (it.html) body.replaceChildren(richNodes(it.html));
+        else body.textContent = it.text.length > SHOWN ? it.text.slice(0, SHOWN) : it.text;
+      }
+      el.classList.toggle('rich', !!it.html);
+      el.classList.toggle('mono', !it.html && isMono(it.text));
     } else if (it.type === 'link') {
       body.textContent = it.title || prettyUrl(it.url);
       sub.textContent = hostOf(it.url);
@@ -148,6 +179,7 @@
   // 热的东西只有在一栏放不下时才占两栏，短的照常一栏，这样各栏高度更均匀。
   const ruler = document.createElement('canvas').getContext('2d');
   function textWidth(it, t, s, grid) {
+    if (it.html && /<table/i.test(it.html)) return Infinity; // 表格尽量占宽一点
     const mono = it.type === 'text' && isMono(it.text);
     const text = it.type === 'text' ? it.text : it.type === 'link' ? it.title || prettyUrl(it.url) : splitPath(it.path)[0];
     ruler.font = `${(mono ? 0.84 + t * 0.5 : 0.9 + t * 0.62) * s * grid.fs}px ${mono ? grid.mono : grid.sans}`;
@@ -312,7 +344,24 @@
   function arrive(list) {
     list = (list || []).filter(Boolean);
     if (!list.length) return;
+    // 记下这一步：新来的，撤销时拿掉；重复放的（只是让原来那条重新变热），撤销时还原
+    const added = [], warm = [];
+    for (const it of list) {
+      const old = items.find((x) => x.id === it.id);
+      if (old) warm.push([old.id, snap(old, ['touched', 'sunk', 'sunkAt'])]); else added.push(it.id);
+    }
     list.forEach(adopt);
+    record({
+      key: 'undo.add', n: list.length,
+      undo: () => {
+        restorer(warm)();
+        if (!added.length) return;
+        for (const id of added) { dead.add(id); selected.delete(id); }
+        items = items.filter((it) => !added.includes(it.id));
+        yw.trash(added);
+        yw.discard(added);
+      },
+    });
     if (mode === 'arch') setMode('live'); else layout();
     board.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -357,19 +406,20 @@
   }
   function sinkMany(list) {
     const now = Date.now();
-    for (const it of list) save(it, { sunk: true, sunkAt: now, pin: false });
+    change(list, ['sunk', 'sunkAt', 'pin'], () => { for (const it of list) save(it, { sunk: true, sunkAt: now, pin: false }); });
     layout();
   }
   const sink = (it) => sinkMany([it]);
   function rescueMany(list) {
     const now = Date.now();
-    for (const it of list) { save(it, { sunk: false, sunkAt: null, touched: now }); delete it.sunkAt; risen.add(it.id); }
+    change(list, ['sunk', 'sunkAt', 'touched'], () => { for (const it of list) { save(it, { sunk: false, sunkAt: null, touched: now }); delete it.sunkAt; risen.add(it.id); } });
     layout();
   }
   const rescue = (it) => rescueMany([it]);
 
   // 单独缩放：to 是一个函数，给出每一条的新倍数。回到 1 附近就当作恢复原样
-  function resize(list, to) {
+  function resize(list, to, rec = true) {
+    if (rec) record({ key: 'undo.step', n: list.length, undo: restorer(list.map((it) => [it.id, snap(it, ['scale'])])) });
     for (const it of list) {
       let s = Math.max(SCALE_MIN, Math.min(SCALE_MAX, to(it.scale || 1)));
       if (Math.abs(s - 1) < 0.04) s = 1;
@@ -387,29 +437,59 @@
     items = items.filter((it) => !ids.has(it.id));
     for (const id of ids) selected.delete(id);
     yw.trash([...ids]);
-    undoCount += ids.size;
-    renderUndo();
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(forgetUndo, 8000);
+    const gone = [...ids];
+    record({ key: 'undo', n: gone.length, discard: gone, undo: async () => { (await yw.restore(gone)).forEach(adopt); } });
     layout();
   }
   const destroy = (it) => destroyMany([it]);
+  // 撤销入口：底部写一句，几秒后淡出；Ctrl+Z 一直有效，可以连着往回退
   function renderUndo() {
-    undoEl.textContent = T('undo', { n: undoCount });
-    undoEl.hidden = undoCount === 0;
+    undoEl.textContent = undoNote ? T(undoNote.key, { n: undoNote.n }) : '';
+    undoEl.hidden = !undoNote;
   }
   function forgetUndo() {
     clearTimeout(undoTimer);
-    undoCount = 0;
-    undoEl.hidden = true;
-    yw.emptyTrash();
+    undoNote = null;
+    renderUndo();
+  }
+  // 记下做过的一步：entry.undo 还原它；entry.discard 是被它删掉的条目，这一步被挤出历史时才真正清掉图片文件
+  function record(entry) {
+    history.push(entry);
+    while (history.length > HISTORY_MAX) {
+      const old = history.shift();
+      if (old.discard) yw.discard(old.discard);
+    }
+    undoNote = { key: entry.key, n: entry.n };
+    renderUndo();
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(forgetUndo, 8000);
+  }
+  // 改了几条的哪几项：先拍下旧值，改完记一步
+  const snap = (it, keys) => { const o = {}; for (const k of keys) o[k] = it[k] === undefined ? null : it[k]; return o; };
+  function revert(it, prev) {
+    save(it, prev);
+    for (const k in prev) if (prev[k] === null) delete it[k];
+  }
+  const restorer = (before) => () => {
+    for (const [id, prev] of before) {
+      const it = items.find((x) => x.id === id);
+      if (!it) continue;
+      revert(it, prev);
+      const el = els.get(id);
+      if (el) fill(it, el);
+    }
+  };
+  function change(list, keys, fn, key = 'undo.step') {
+    list = list.filter(Boolean);
+    const before = list.map((it) => [it.id, snap(it, keys)]);
+    fn();
+    record({ key, n: list.length, undo: restorer(before) });
   }
   async function undo() {
-    if (!undoCount) return;
-    clearTimeout(undoTimer);
-    undoCount = 0;
-    undoEl.hidden = true;
-    (await yw.untrash()).forEach(adopt);
+    const step = history.pop();
+    if (!step) return;
+    forgetUndo();
+    await step.undo();
     layout();
   }
 
@@ -464,7 +544,7 @@
       const text = keep ? readText(body) : '';
       el.remove();
       draft = null;
-      if (text) adopt(await yw.addText(text));
+      if (text) arrive([await yw.addText(text)]);
       layout();
     };
     body.addEventListener('input', layout);
@@ -488,7 +568,7 @@
     el.classList.add('editing');
     el.draggable = false;
     body.contentEditable = 'plaintext-only';
-    if (it.text.length > SHOWN) body.textContent = it.text; // 编辑的是全文
+    if (it.html || it.text.length > SHOWN) body.textContent = it.text; // 编辑的是全文（带格式的先变成纯文字）
     let cancelled = false;
     const onKey = (e) => {
       if (e.isComposing) return;
@@ -504,7 +584,10 @@
       editing = null;
       const text = cancelled ? it.text : readText(body);
       if (!text) { destroy(it); return; }
-      if (text !== it.text) save(it, { text, touched: Date.now() });
+      if (text !== it.text) {
+        change([it], ['text', 'touched', 'html'], () => save(it, { text, touched: Date.now(), html: null }));
+        delete it.html;
+      }
       fill(it, el);
       layout();
     };
@@ -612,7 +695,7 @@
         if (it.type === 'text') add(T('m.edit'), () => startEdit(it, els.get(it.id)));
         if (it.type === 'link') add(T('m.copyLink'), () => { yw.copy(it.id); say(els.get(it.id), T('copied')); });
         if (it.type === 'image') add(T('m.enlarge'), () => openView(it));
-        add(it.pin ? T('m.unpin') : T('m.pin'), () => { save(it, { pin: !it.pin, touched: Date.now() }); fill(it, els.get(it.id)); layout(); });
+        add(it.pin ? T('m.unpin') : T('m.pin'), () => { change([it], ['pin', 'touched'], () => save(it, { pin: !it.pin, touched: Date.now() })); fill(it, els.get(it.id)); layout(); });
         add(T('m.sink'), () => sink(it));
         if (it.scale) add(T('m.resetSize'), () => resize([it], () => 1));
       }
@@ -675,6 +758,7 @@
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/plain', text);
     if (it.type === 'link') e.dataTransfer.setData('text/uri-list', it.url);
+    if (it.html) e.dataTransfer.setData('text/html', it.html);
     el.addEventListener('dragend', () => { selfDrag = false; touch(it); }, { once: true });
   });
 
@@ -693,7 +777,8 @@
     const paths = [...dt.files].map((f) => { try { return yw.pathFor(f); } catch { return ''; } }).filter(Boolean);
     if (paths.length) { arrive(await yw.addPaths(paths)); return; }
     const html = dt.getData('text/html');
-    const uri = (dt.getData('text/uri-list').split(/\r?\n/).find((l) => l && !l.startsWith('#')) || '').trim();
+    const uris = dt.getData('text/uri-list').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+    const uri = uris[0] || '';
     const text = dt.getData('text/plain');
     const src = ((/<img[^>]+src=["']([^"']+)/i.exec(html) || [])[1] || '').replace(/&amp;/g, '&');
     // 从浏览器拖来的图片：把图本身存下来
@@ -701,7 +786,7 @@
       const it = await yw.addImageUrl(src);
       if (it) { arrive([it]); return; }
     }
-    arrive([await yw.addText(uri || text)]);
+    arrive(await yw.addTexts(uris.length > 1 ? uris.join('\n') : uri || text, uri ? '' : html)); // 一次拖来好几个网址，就是好几条链接
   });
 
   // ---------- 键盘、缩放、窗口 ----------
@@ -726,9 +811,10 @@
         list = selected.size > 1 && selected.has(it.id) ? selectedItems() : [it];
       }
       clearTimeout(sizing && sizing.timer);
-      sizing = { list, timer: setTimeout(() => { sizing = null; }, 700) };
+      const first = !(sizing && sizing.rec); // 一次连续滚动只记一步
+      sizing = { list, rec: true, timer: setTimeout(() => { sizing = null; }, 700) };
       const notches = Math.max(-1, Math.min(1, -(e.deltaY || e.deltaX) / 100));
-      resize(list, (s) => s * Math.pow(1.12, notches));
+      resize(list, (s) => s * Math.pow(1.12, notches), first);
       return;
     }
     if (!e.ctrlKey) return;
@@ -971,7 +1057,7 @@
   window.ywBusy = () => !!draft || !!editing || !!band || selfDrag || !!recording || !menu.hidden || !guide.hidden || !view.hidden;
 
   yw.on('added', arrive);
-  yw.on('changed', (it) => { adopt(it); layout(); });
+  yw.on('changed', (it) => { if (dead.has(it.id)) return; adopt(it); layout(); });
   yw.on('level', showLevel);
 
   // 东西会自己变凉：定时重排

@@ -120,7 +120,17 @@ function main() {
     return it;
   }
 
-  function addText(raw) {
+  // 复制来的内容带格式（表格、列表、加粗、链接……）时，把那一段 HTML 一起存下来；只是普通文字就不存
+  const RICH = /<(table|ul|ol|li|b|strong|i|em|u|s|h[1-6]|br|pre|blockquote|a\s[^>]*href)\b/i;
+  function richHtml(raw) {
+    let html = String(raw || '');
+    const a = html.indexOf('<!--StartFragment-->'), b = html.indexOf('<!--EndFragment-->');
+    if (a >= 0 && b > a) html = html.slice(a + 20, b);
+    html = html.trim();
+    return html && html.length <= 300000 && RICH.test(html) ? html : '';
+  }
+
+  function addText(raw, htmlRaw) {
     const text = String(raw || '').replace(/\r\n/g, '\n').trim();
     if (!text) return null;
     if (/^https?:\/\/\S+$/i.test(text)) {
@@ -130,9 +140,17 @@ function main() {
       fetchTitle(it);
       return it;
     }
-    const dup = items.find((it) => it.type === 'text' && it.text === text);
+    const html = richHtml(htmlRaw);
+    const dup = items.find((it) => it.type === 'text' && it.text === text && (it.html || '') === html);
     if (dup) return rewarm(dup);
-    return create('text', { text });
+    return create('text', html ? { text, html } : { text });
+  }
+
+  // 一次放进来好几个网址（每行一个）：拆成几条链接；其余照常当一条
+  function addTexts(raw, htmlRaw) {
+    const lines = String(raw || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length > 1 && lines.every((l) => /^https?:\/\/\S+$/i.test(l))) return [...new Set(lines)].map((l) => addText(l)).filter(Boolean);
+    return [addText(raw, htmlRaw)].filter(Boolean);
   }
 
   function addImageBuffer(buf, ext, size) {
@@ -194,7 +212,10 @@ function main() {
     }
     const textBytes = await bytesOf('text/plain');
     const text = textBytes ? textBytes.toString('utf8') : '';
-    if (text.trim()) return [addText(text)].filter(Boolean);
+    if (text.trim()) {
+      const htmlBytes = await bytesOf('text/html'); // Excel、网页、Word 里复制的内容，同时带着带格式的版本
+      return addTexts(text, htmlBytes ? htmlBytes.toString('utf8') : '');
+    }
     for (const [type, ext] of [['image/png', '.png'], ['image/jpeg', '.jpg']]) {
       const buf = await bytesOf(type);
       if (buf && buf.length) return [addImageBuffer(buf, ext, nativeImage.createFromBuffer(buf).getSize())];
@@ -203,6 +224,10 @@ function main() {
   }
 
   async function copyItem(it) {
+    if (it.type === 'text' && it.html) { // 带格式的：纯文字和原来的格式一起放进剪贴板，粘到 Excel、Word 里还是表格
+      await clipboard.write([new ClipboardItem({ 'text/plain': new Blob([it.text], { type: 'text/plain' }), 'text/html': new Blob([it.html], { type: 'text/html' }) })]);
+      return;
+    }
     if (it.type !== 'image') {
       await clipboard.writeText(it.type === 'link' ? it.url : it.type === 'file' ? it.path : it.text);
       return;
@@ -1022,10 +1047,11 @@ function main() {
   });
   ipcMain.handle('capture', () => captureClipboard());
   ipcMain.handle('addText', (_e, text) => addText(text));
+  ipcMain.handle('addTexts', (_e, text, html) => addTexts(text, html));
   ipcMain.handle('addPaths', (_e, paths) => (paths || []).map(addPath).filter(Boolean));
   ipcMain.handle('addImageUrl', (_e, url) => addImageUrl(String(url)));
 
-  const EDITABLE = ['text', 'title', 'pin', 'sunk', 'sunkAt', 'touched', 'uses', 'w', 'h', 'scale'];
+  const EDITABLE = ['text', 'html', 'title', 'pin', 'sunk', 'sunkAt', 'touched', 'uses', 'w', 'h', 'scale'];
   ipcMain.handle('update', (_e, id, patch) => {
     const it = byId(id);
     if (!it) return null;
@@ -1056,6 +1082,26 @@ function main() {
     return back;
   });
   ipcMain.handle('emptyTrash', () => emptyTrash());
+  // 按编号取回、或彻底清掉回收区里的条目（撤销历史用）
+  ipcMain.handle('restore', (_e, ids) => {
+    const back = [];
+    for (const id of ids || []) {
+      const i = trash.findIndex((it) => it.id === id);
+      if (i >= 0) back.push(...trash.splice(i, 1));
+    }
+    items.push(...back);
+    saveItems();
+    return back;
+  });
+  ipcMain.handle('discard', (_e, ids) => {
+    for (const id of ids || []) {
+      const i = trash.findIndex((it) => it.id === id);
+      if (i < 0) continue;
+      const [it] = trash.splice(i, 1);
+      if (it.type === 'image') { try { fs.unlinkSync(imagePath(it)); } catch {} }
+    }
+    return true;
+  });
 
   ipcMain.handle('copy', async (_e, id) => {
     const it = byId(id);

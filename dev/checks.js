@@ -391,6 +391,37 @@ module.exports = {
     return out;
   })()`,
 
+  // 撤销历史、一次拖来几个网址、带格式的文字
+  history: `(async () => { ${helpers}
+    const out = {};
+    const undoEl = document.getElementById('undo');
+    const count = () => $$('.it:not(.gone)').length;
+    const saved = async () => (await window.yw.init()).items.length;
+    const key = (k, opts = {}) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...opts }));
+    const drop = (data) => { const dt = new DataTransfer(); for (const k in data) dt.setData(k, data[k]); window.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); };
+    out.start = { shown: count(), saved: await saved() };
+
+    drop({ 'text/uri-list': 'https://a.invalid/1\\nhttps://b.invalid/2\\nhttps://c.invalid/3', 'text/plain': 'https://a.invalid/1' });
+    await sleep(500);
+    out.threeLinks = { shown: count(), undo: undoEl.hidden ? null : undoEl.textContent, saved: await saved() };
+    key('z', { ctrlKey: true });
+    await sleep(300);
+    out.linksUndone = { shown: count(), saved: await saved(), undoHidden: undoEl.hidden };
+
+    drop({ 'text/plain': 'zz1 zz2 zz3 zz4', 'text/html': '<table><tr><td>zz1</td><td>zz2</td></tr><tr><td>zz3</td><td>zz4</td></tr></table><script>window.hacked = 1</script>' });
+    await sleep(400);
+    const rich = document.querySelector('.it.rich');
+    out.table = { shown: count(), rich: !!rich, cells: rich ? rich.querySelectorAll('td').length : 0, script: rich ? rich.querySelectorAll('script').length : -1, hacked: !!window.hacked };
+    key('z', { ctrlKey: true });
+    await sleep(300);
+    out.tableUndone = { shown: count(), saved: await saved(), rich: !!document.querySelector('.it.rich') };
+
+    key('z', { ctrlKey: true });
+    await sleep(200);
+    out.nothingToUndo = count();
+    return out;
+  })()`,
+
   // 框选、Delete、撤销、指针悬停删除、Ctrl+点击
   select: `(async () => { ${helpers}
     const out = {};
