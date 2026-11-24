@@ -14,13 +14,11 @@
     "icons": "electron dev/make-icons.js",
     "pack": "node dev/pack.js",
     "installer": "node dev/installer.js",
-    "release": "node dev/pack.js && node dev/installer.js",
-    "video": "node dev/video/make.js"
+    "release": "node dev/pack.js && node dev/installer.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
-    "electron": "^45.4.1",
-    "mp4-muxer": "^5.2.2"
+    "electron": "^45.4.1"
   },
   "dependencies": {
     "koffi": "^3.3.8"
